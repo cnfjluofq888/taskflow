@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow - 任务管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .add-task {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input, select, button {
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 1em;
+        }
+
+        input {
+            flex: 1;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 12px 24px;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #5a6fd8;
+        }
+
+        .task-list {
+            list-style: none;
+        }
+
+        .task-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .task-item.completed {
+            opacity: 0.6;
+        }
+
+        .task-item.completed .task-text {
+            text-decoration: line-through;
+        }
+
+        .task-checkbox {
+            width: 20px;
+            height: 20px;
+            margin-right: 15px;
+            cursor: pointer;
+        }
+
+        .task-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .task-text {
+            flex: 1;
+        }
+
+        .task-category {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+
+        .category-work { background: #e3f2fd; color: #1976d2; }
+        .category-personal { background: #fce4ec; color: #c2185b; }
+        .category-study { background: #fff3e0; color: #f57c00; }
+        .category-health { background: #e8f5e9; color: #388e3c; }
+
+        .task-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 0.9em;
+            background: #dc3545;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .add-task {
+                flex-direction: column;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 TaskFlow</h1>
+        <p class="subtitle">简单高效的任务管理</p>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number" id="totalTasks">0</div>
+                <div class="stat-label">总任务</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number" id="completedTasks">0</div>
+                <div class="stat-label">已完成</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number" id="completionRate">0%</div>
+                <div class="stat-label">完成率</div>
+            </div>
+        </div>
+
+        <div class="add-task">
+            <input type="text" id="taskInput" placeholder="输入任务内容..." />
+            <select id="categorySelect">
+                <option value="personal">🏠 个人</option>
+                <option value="work">💼 工作</option>
+                <option value="study">📚 学习</option>
+                <option value="health">🏃 健康</option>
+            </select>
+            <button onclick="addTask()">添加任务</button>
+        </div>
+
+        <ul id="taskList" class="task-list">
+            <li class="empty">暂无任务，添加您的第一个任务吧！</li>
+        </ul>
+    </div>
+
+    <script>
+        // 任务管理系统
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+        function init() {
+            renderTasks();
+            updateStats();
+        }
+
+        function addTask() {
+            const input = document.getElementById('taskInput');
+            const category = document.getElementById('categorySelect').value;
+            
+            if (!input.value.trim()) {
+                alert('请输入任务内容');
+                return;
+            }
+
+            const task = {
+                id: Date.now(),
+                text: input.value.trim(),
+                category: category,
+                completed: false,
+                createdAt: new Date().toISOString()
+            };
+
+            tasks.unshift(task);
+            saveTasks();
+            renderTasks();
+            updateStats();
+            
+            input.value = '';
+        }
+
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                saveTasks();
+                renderTasks();
+                updateStats();
+            }
+        }
+
+        function deleteTask(id) {
+            if (confirm('确定要删除这个任务吗？')) {
+                tasks = tasks.filter(t => t.id !== id);
+                saveTasks();
+                renderTasks();
+                updateStats();
+            }
+        }
+
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            
+            if (tasks.length === 0) {
+                taskList.innerHTML = '<li class="empty">暂无任务，添加您的第一个任务吧！</li>';
+                return;
+            }
+
+            taskList.innerHTML = tasks.map(task => `
+                <li class="task-item ${task.completed ? 'completed' : ''}">
+                    <div class="task-content">
+                        <input type="checkbox" 
+                               class="task-checkbox" 
+                               ${task.completed ? 'checked' : ''}
+                               onchange="toggleTask(${task.id})" />
+                        <span class="task-text">${task.text}</span>
+                        <span class="task-category category-${task.category}">
+                            ${getCategoryLabel(task.category)}
+                        </span>
+                    </div>
+                    <div class="task-actions">
+                        <button class="btn-small" onclick="deleteTask(${task.id})">删除</button>
+                    </div>
+                </li>
+            `).join('');
+        }
+
+        function getCategoryLabel(category) {
+            const labels = {
+                work: '工作',
+                personal: '个人',
+                study: '学习',
+                health: '健康'
+            };
+            return labels[category] || category;
+        }
+
+        function updateStats() {
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.completed).length;
+            const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            document.getElementById('totalTasks').textContent = total;
+            document.getElementById('completedTasks').textContent = completed;
+            document.getElementById('completionRate').textContent = rate + '%';
+        }
+
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        // 回车键添加任务
+        document.getElementById('taskInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addTask();
+            }
+        });
+
+        // 初始化
+        init();
+    </script>
+</body>
+</html>
